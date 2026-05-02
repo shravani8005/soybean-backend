@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import cv2
 import os
+import threading
 
 app = Flask(__name__)
 
@@ -12,16 +13,24 @@ app = Flask(__name__)
 model_path = os.path.join(os.path.dirname(__file__), "vgg16_seed_model.h5")
 model = tf.keras.models.load_model(model_path)
 
+print("✅ Model loaded successfully")
+
 # =========================
-# WARM-UP (ADD THIS)
+# WARM-UP (RUN ONCE)
 # =========================
 dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
 model.predict(dummy)
+print("✅ Warm-up done")
+
+# =========================
+# THREAD LOCK (IMPORTANT)
+# =========================
+lock = threading.Lock()
 
 IMG_SIZE = 224
 
 # =========================
-# PREPROCESS
+# PREPROCESS (UNCHANGED)
 # =========================
 def preprocess(img):
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
@@ -30,11 +39,12 @@ def preprocess(img):
     return img
 
 # =========================
-# PREDICT
+# PREDICT (UNCHANGED LOGIC)
 # =========================
 def predict(img):
-    x = preprocess(img)
-    prob = model.predict(x, verbose=0)[0][0]
+    with lock:
+        x = preprocess(img)
+        prob = model.predict(x, verbose=0)[0][0]
 
     if prob > 0.5:
         return "GOOD", float(prob)
@@ -57,9 +67,7 @@ def predict_api():
     if img is None:
         return jsonify({"error": "Invalid image"}), 400
 
-    # =========================
-    # ADD THIS LINE (VERY IMPORTANT)
-    # =========================
+    # Resize once (keep this only here OR preprocess — keeping both is fine but this avoids extra load)
     img = cv2.resize(img, (224, 224))
 
     label, confidence = predict(img)
@@ -68,15 +76,17 @@ def predict_api():
         "prediction": label,
         "confidence": round(confidence, 2)
     })
+
 # =========================
-# ROOT ROUTE (for testing)
+# ROOT ROUTE
 # =========================
 @app.route("/")
 def home():
     return "Soybean Seed API is running 🚀"
 
 # =========================
-# RUN
+# RUN (RENDER SAFE)
 # =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
