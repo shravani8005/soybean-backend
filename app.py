@@ -6,14 +6,14 @@ import os
 import threading
 
 # =========================
-# LIMIT TF RESOURCE USAGE (IMPORTANT)
+# LIMIT TF RESOURCE USAGE
 # =========================
 tf.config.set_visible_devices([], 'GPU')
 
 app = Flask(__name__)
 
 # =========================
-# LOAD MODEL (SAFE PATH) — FIXED
+# LOAD MODEL
 # =========================
 model_path = os.path.join(os.path.dirname(__file__), "vgg16_seed_model.h5")
 model = tf.keras.models.load_model(model_path, compile=False)
@@ -21,14 +21,14 @@ model = tf.keras.models.load_model(model_path, compile=False)
 print("✅ Model loaded successfully")
 
 # =========================
-# THREAD LOCK (IMPORTANT)
+# THREAD LOCK
 # =========================
 lock = threading.Lock()
 
 IMG_SIZE = 224
 
 # =========================
-# PREPROCESS (UNCHANGED)
+# PREPROCESS
 # =========================
 def preprocess(img):
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
@@ -37,7 +37,7 @@ def preprocess(img):
     return img
 
 # =========================
-# PREDICT (UNCHANGED LOGIC)
+# PREDICT (UNCHANGED)
 # =========================
 def predict(img):
     with lock:
@@ -50,14 +50,21 @@ def predict(img):
         return "DEFECTIVE", float(1 - prob)
 
 # =========================
-# API ROUTE
+# API ROUTE (FIXED)
 # =========================
 @app.route("/predict", methods=["POST"])
 def predict_api():
-    if "image" not in request.files:
-        return jsonify({"error": "No image provided"}), 400
+    print("FILES RECEIVED:", request.files)
 
-    file = request.files["image"]
+    # Accept both 'image' and fallback first file
+    file = request.files.get("image")
+
+    if file is None:
+        # fallback: take any file sent
+        if len(request.files) > 0:
+            file = list(request.files.values())[0]
+        else:
+            return jsonify({"error": "No image provided"}), 400
 
     file_bytes = np.frombuffer(file.read(), np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
@@ -65,7 +72,6 @@ def predict_api():
     if img is None:
         return jsonify({"error": "Invalid image"}), 400
 
-    # Resize once
     img = cv2.resize(img, (224, 224))
 
     label, confidence = predict(img)
@@ -83,7 +89,7 @@ def home():
     return "Soybean Seed API is running 🚀"
 
 # =========================
-# RUN (RENDER SAFE)
+# RUN
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
