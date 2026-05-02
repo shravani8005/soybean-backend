@@ -5,22 +5,20 @@ import cv2
 import os
 import threading
 
+# =========================
+# LIMIT TF RESOURCE USAGE (IMPORTANT)
+# =========================
+tf.config.set_visible_devices([], 'GPU')
+
 app = Flask(__name__)
 
 # =========================
-# LOAD MODEL (SAFE PATH)
+# LOAD MODEL (SAFE PATH) — FIXED
 # =========================
 model_path = os.path.join(os.path.dirname(__file__), "vgg16_seed_model.h5")
-model = tf.keras.models.load_model(model_path)
+model = tf.keras.models.load_model(model_path, compile=False)
 
 print("✅ Model loaded successfully")
-
-# =========================
-# WARM-UP (RUN ONCE)
-# =========================
-dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
-model.predict(dummy)
-print("✅ Warm-up done")
 
 # =========================
 # THREAD LOCK (IMPORTANT)
@@ -67,7 +65,7 @@ def predict_api():
     if img is None:
         return jsonify({"error": "Invalid image"}), 400
 
-    # Resize once (keep this only here OR preprocess — keeping both is fine but this avoids extra load)
+    # Resize once
     img = cv2.resize(img, (224, 224))
 
     label, confidence = predict(img)
