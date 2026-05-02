@@ -12,6 +12,12 @@ app = Flask(__name__)
 model_path = os.path.join(os.path.dirname(__file__), "vgg16_seed_model.h5")
 model = tf.keras.models.load_model(model_path)
 
+# =========================
+# WARM-UP (ADD THIS)
+# =========================
+dummy = np.zeros((1, 224, 224, 3), dtype=np.float32)
+model.predict(dummy)
+
 IMG_SIZE = 224
 
 # =========================
@@ -51,13 +57,17 @@ def predict_api():
     if img is None:
         return jsonify({"error": "Invalid image"}), 400
 
+    # =========================
+    # ADD THIS LINE (VERY IMPORTANT)
+    # =========================
+    img = cv2.resize(img, (224, 224))
+
     label, confidence = predict(img)
 
     return jsonify({
         "prediction": label,
         "confidence": round(confidence, 2)
     })
-
 # =========================
 # ROOT ROUTE (for testing)
 # =========================
