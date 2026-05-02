@@ -42,7 +42,7 @@ def preprocess(img):
 def predict(img):
     with lock:
         x = preprocess(img)
-        prob = model.predict(x, verbose=0)[0][0]
+        prob = model(x, training=False).numpy()[0][0]
 
     if prob > 0.5:
         return "GOOD", float(prob)
