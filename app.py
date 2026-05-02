@@ -50,23 +50,32 @@ def predict(img):
         return "DEFECTIVE", float(1 - prob)
 
 # =========================
-# API ROUTE (FIXED)
+# API ROUTE (FINAL FIX)
 # =========================
 @app.route("/predict", methods=["POST"])
 def predict_api():
-    print("FILES RECEIVED:", request.files)
+    print("FILES:", request.files)
+    print("DATA LENGTH:", len(request.data))
 
-    # Accept both 'image' and fallback first file
-    file = request.files.get("image")
+    file_bytes = None
 
-    if file is None:
-        # fallback: take any file sent
-        if len(request.files) > 0:
-            file = list(request.files.values())[0]
-        else:
-            return jsonify({"error": "No image provided"}), 400
+    # ✅ Case 1: form-data
+    if "image" in request.files:
+        file = request.files["image"]
+        file_bytes = np.frombuffer(file.read(), np.uint8)
 
-    file_bytes = np.frombuffer(file.read(), np.uint8)
+    # ✅ Case 2: any file key fallback
+    elif len(request.files) > 0:
+        file = list(request.files.values())[0]
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+
+    # ✅ Case 3: binary/raw
+    elif len(request.data) > 0:
+        file_bytes = np.frombuffer(request.data, np.uint8)
+
+    else:
+        return jsonify({"error": "No image provided"}), 400
+
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     if img is None:
